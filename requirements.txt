@@ -1,0 +1,16 @@
+# Core Quantum Computing SDK
+qiskit>=2.5.0
+qiskit-nature>=0.8.0
+qiskit-aer>=0.17.0
+qiskit-algorithms>=0.4.0
+
+# Numerical, Scientific & Symbolic Mathematics
+numpy>=2.0.0
+scipy>=1.15.0
+sympy>=1.13.0
+
+# Visualization & Interactive UI
+matplotlib>=3.10.0
+plotly>=6.0.0
+streamlit>=1.40.0
+pandas>=2.2.0
