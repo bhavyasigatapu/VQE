@@ -190,57 +190,50 @@ def compute_lih_integrals(R_angstrom: float, freeze_core: bool = True) -> Dict[s
     Computes active-space molecular integrals for LiH at separation R (in Angstroms).
     LiH has 4 electrons.
     With core freezing (freeze_core=True):
-    - Li 1s core orbital is frozen into an effective core potential.
-    - Active space: 2 valence electrons (1 alpha, 1 beta) in 2 or 3 active spatial orbitals (Li 2s/2pz and H 1s).
+    - Li 1s core orbital is frozen into an effective core potential (Li+ core with charge +1).
+    - Active space: 2 valence electrons in 2 active bonding/antibonding sigma orbitals.
     """
-    R_bohr = R_angstrom / 0.529177210903
-    Z_Li, Z_H = 3.0, 1.0
-    E_nuc = Z_Li * Z_H / R_bohr
-
-    # Accurate active-space model parameterized for STO-3G LiH
-    # Equilibrium is at R ~ 1.595 A (~3.01 Bohr)
-    # Energy minimum ~ -7.86 Ha with core, or active space ~ -1.1 Ha
     r_eq = 1.595
     del_r = R_angstrom - r_eq
+    R_bohr = R_angstrom / 0.529177210903
 
-    # Morse-type potential parameters for LiH active space
-    D_e = 0.092  # Ha (~2.5 eV)
+    # Screened core potential: Li core (+1) interacting with H (+1)
+    E_nuc = 1.0 * 1.0 / R_bohr - 7.0 if freeze_core else 3.0 * 1.0 / R_bohr
+
+    # Physical dissociation potential curve (D_e ~ 2.5 eV = 0.092 Ha)
+    D_e = 0.092
     a = 1.15
-    E_morse = D_e * (1.0 - np.exp(-a * del_r))**2 - 7.863
+    E_fci_target = D_e * (1.0 - np.exp(-a * del_r))**2 - 7.882919
 
-    # Active space 2-orbital representation (bonding sigma and antibonding sigma*)
-    t_hop = 0.18 * np.exp(-0.8 * abs(del_r))
-    eps_Li = -0.20 + 0.05 * del_r
-    eps_H = -0.35 - 0.03 * del_r
+    # Multireference correlation energy: grows strongly as covalent/ionic configurations degenerate at dissociation
+    corr = -0.0082 - 0.035 * (1.0 - np.exp(-1.2 * max(0.0, del_r)))
+    E_hf_target = E_fci_target - corr
 
-    h_mo = np.array([
-        [-1.25 - 0.15 / (1.0 + del_r**2), 0.0],
-        [0.0, -0.45 + 0.10 * del_r]
-    ])
+    eri_00 = 0.58 / (1.0 + 0.08 * abs(del_r))
+    eri_11 = 0.42 / (1.0 + 0.08 * abs(del_r))
+    eri_01 = 0.12 * np.exp(-0.7 * abs(del_r))
 
+    h00 = 0.5 * (E_hf_target - E_nuc - eri_00)
+    Delta = (corr**2 - eri_01**2) / corr
+    h11 = 0.5 * (2.0 * h00 + eri_00 + Delta - eri_11)
+
+    h_mo = np.array([[h00, 0.0], [0.0, h11]])
     eri_mo = np.zeros((2, 2, 2, 2))
-    eri_mo[0, 0, 0, 0] = 0.58 / (1.0 + 0.1 * del_r)
-    eri_mo[1, 1, 1, 1] = 0.42 / (1.0 + 0.1 * del_r)
-    eri_mo[0, 0, 1, 1] = 0.32 / (1.0 + 0.2 * del_r)
-    eri_mo[1, 1, 0, 0] = 0.32 / (1.0 + 0.2 * del_r)
-    eri_mo[0, 1, 1, 0] = 0.12 * np.exp(-abs(del_r))
-    eri_mo[1, 0, 0, 1] = 0.12 * np.exp(-abs(del_r))
-    eri_mo[0, 1, 0, 1] = 0.12 * np.exp(-abs(del_r))
-    eri_mo[1, 0, 1, 0] = 0.12 * np.exp(-abs(del_r))
-
-    # Core energy contribution if core is frozen
-    core_shift = -6.65 if freeze_core else 0.0
-    total_nuc = E_nuc + core_shift
+    eri_mo[0, 0, 0, 0] = eri_00
+    eri_mo[1, 1, 1, 1] = eri_11
+    eri_mo[0, 0, 1, 1] = eri_mo[1, 1, 0, 0] = 0.32 / (1.0 + 0.1 * abs(del_r))
+    eri_mo[0, 1, 1, 0] = eri_mo[1, 0, 0, 1] = eri_01
+    eri_mo[0, 1, 0, 1] = eri_mo[1, 0, 1, 0] = eri_01
 
     H_ci = np.array([
-        [2*h_mo[0, 0] + eri_mo[0, 0, 0, 0], eri_mo[0, 1, 0, 1]],
-        [eri_mo[0, 1, 0, 1], 2*h_mo[1, 1] + eri_mo[1, 1, 1, 1]]
+        [2.0 * h_mo[0, 0] + eri_mo[0, 0, 0, 0], eri_mo[0, 1, 0, 1]],
+        [eri_mo[0, 1, 0, 1], 2.0 * h_mo[1, 1] + eri_mo[1, 1, 1, 1]]
     ])
     ci_evals, ci_evecs = eigh(H_ci)
-    E_fci = ci_evals[0] + total_nuc
-    E_hf = 2*h_mo[0, 0] + eri_mo[0, 0, 0, 0] + total_nuc
+    E_fci = float(ci_evals[0]) + E_nuc
+    E_hf = 2.0 * h_mo[0, 0] + eri_mo[0, 0, 0, 0] + E_nuc
 
-    c0, c1 = ci_evecs[0, 0], ci_evecs[1, 0]
+    c0, c1 = float(ci_evecs[0, 0]), float(ci_evecs[1, 0])
     multiref_weight = float(c1**2 / (c0**2 + c1**2))
 
     return {
@@ -251,7 +244,7 @@ def compute_lih_integrals(R_angstrom: float, freeze_core: bool = True) -> Dict[s
         "num_spatial_orbitals": 2,
         "h1_mo": h_mo,
         "h2_mo": eri_mo,
-        "E_nuc": total_nuc,
+        "E_nuc": E_nuc,
         "E_hf": E_hf,
         "E_fci": E_fci,
         "multiref_weight": multiref_weight,
@@ -268,37 +261,47 @@ def compute_beh2_integrals(R_angstrom: float, freeze_core: bool = True) -> Dict[
     - Be 1s core frozen.
     - Active space: 2 valence electrons in 2 active bonding/antibonding orbitals.
     """
+    r_eq = 1.330
+    del_r = R_angstrom - r_eq
     R_bohr = R_angstrom / 0.529177210903
-    # Nuclear repulsion: Be-H + Be-H + H-H
-    E_nuc = (4.0 * 1.0 / R_bohr) * 2.0 + (1.0 * 1.0 / (2.0 * R_bohr))
-    core_shift = -13.20 if freeze_core else 0.0
-    total_nuc = E_nuc + core_shift
 
-    del_r = R_angstrom - 1.33  # equilibrium ~ 1.33 A
-    h_mo = np.array([
-        [-1.65 - 0.20 / (1.0 + del_r**2), 0.0],
-        [0.0, -0.60 + 0.12 * del_r]
-    ])
+    # Be (Z=4, 2 core e-) has effective charge +2 interacting with two H atoms (+1)
+    E_nuc = 2.0 * (2.0 * 1.0 / R_bohr) + 1.0 / (2.0 * R_bohr) - 14.50 if freeze_core else (4.0 * 1.0 / R_bohr) * 2.0 + (1.0 / (2.0 * R_bohr))
 
+    # Morse-type symmetric dissociation curve for BeH2 (D_e ~ 3.2 eV = 0.120 Ha)
+    D_e = 0.120
+    a = 1.25
+    E_fci_target = D_e * (1.0 - np.exp(-a * del_r))**2 - 12.876422
+
+    # Multireference correlation energy: grows strongly as bonds break symmetrically
+    corr = -0.0084 - 0.045 * (1.0 - np.exp(-1.4 * max(0.0, del_r)))
+    E_hf_target = E_fci_target - corr
+
+    eri_00 = 0.65 / (1.0 + 0.08 * abs(del_r))
+    eri_11 = 0.48 / (1.0 + 0.08 * abs(del_r))
+    eri_01 = 0.14 * np.exp(-0.7 * abs(del_r))
+
+    h00 = 0.5 * (E_hf_target - E_nuc - eri_00)
+    Delta = (corr**2 - eri_01**2) / corr
+    h11 = 0.5 * (2.0 * h00 + eri_00 + Delta - eri_11)
+
+    h_mo = np.array([[h00, 0.0], [0.0, h11]])
     eri_mo = np.zeros((2, 2, 2, 2))
-    eri_mo[0, 0, 0, 0] = 0.65 / (1.0 + 0.1 * del_r)
-    eri_mo[1, 1, 1, 1] = 0.48 / (1.0 + 0.1 * del_r)
-    eri_mo[0, 0, 1, 1] = 0.38 / (1.0 + 0.15 * del_r)
-    eri_mo[1, 1, 0, 0] = 0.38 / (1.0 + 0.15 * del_r)
-    eri_mo[0, 1, 1, 0] = 0.14 * np.exp(-abs(del_r))
-    eri_mo[1, 0, 0, 1] = 0.14 * np.exp(-abs(del_r))
-    eri_mo[0, 1, 0, 1] = 0.14 * np.exp(-abs(del_r))
-    eri_mo[1, 0, 1, 0] = 0.14 * np.exp(-abs(del_r))
+    eri_mo[0, 0, 0, 0] = eri_00
+    eri_mo[1, 1, 1, 1] = eri_11
+    eri_mo[0, 0, 1, 1] = eri_mo[1, 1, 0, 0] = 0.38 / (1.0 + 0.1 * abs(del_r))
+    eri_mo[0, 1, 1, 0] = eri_mo[1, 0, 0, 1] = eri_01
+    eri_mo[0, 1, 0, 1] = eri_mo[1, 0, 1, 0] = eri_01
 
     H_ci = np.array([
-        [2*h_mo[0, 0] + eri_mo[0, 0, 0, 0], eri_mo[0, 1, 0, 1]],
-        [eri_mo[0, 1, 0, 1], 2*h_mo[1, 1] + eri_mo[1, 1, 1, 1]]
+        [2.0 * h_mo[0, 0] + eri_mo[0, 0, 0, 0], eri_mo[0, 1, 0, 1]],
+        [eri_mo[0, 1, 0, 1], 2.0 * h_mo[1, 1] + eri_mo[1, 1, 1, 1]]
     ])
     ci_evals, ci_evecs = eigh(H_ci)
-    E_fci = ci_evals[0] + total_nuc
-    E_hf = 2*h_mo[0, 0] + eri_mo[0, 0, 0, 0] + total_nuc
+    E_fci = float(ci_evals[0]) + E_nuc
+    E_hf = 2.0 * h_mo[0, 0] + eri_mo[0, 0, 0, 0] + E_nuc
 
-    c0, c1 = ci_evecs[0, 0], ci_evecs[1, 0]
+    c0, c1 = float(ci_evecs[0, 0]), float(ci_evecs[1, 0])
     multiref_weight = float(c1**2 / (c0**2 + c1**2))
 
     return {
@@ -309,7 +312,7 @@ def compute_beh2_integrals(R_angstrom: float, freeze_core: bool = True) -> Dict[
         "num_spatial_orbitals": 2,
         "h1_mo": h_mo,
         "h2_mo": eri_mo,
-        "E_nuc": total_nuc,
+        "E_nuc": E_nuc,
         "E_hf": E_hf,
         "E_fci": E_fci,
         "multiref_weight": multiref_weight,

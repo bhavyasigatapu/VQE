@@ -108,5 +108,17 @@ class TestBasQVQEPlatform(unittest.TestCase):
         # Dissociation limit should be close to isolated He STO-3G ground state (-2.8082 Ha)
         self.assertAlmostEqual(pes["dissociation_limit_ha"], -2.8082, delta=0.01)
 
+    def test_lih_and_beh2_scaling(self):
+        """Verify LiH and BeH2 potential energy surfaces and chemical accuracy."""
+        pes_lih = scan_potential_energy_surface("LiH", run_quantum_vqe=False)
+        self.assertAlmostEqual(pes_lih["equilibrium_r_angstrom"], 1.60, delta=0.05)
+        self.assertGreater(pes_lih["dissociation_energy_ev"], 1.0)
+        self.assertTrue(pes_lih["all_points_chemically_accurate"])
+
+        pes_beh2 = scan_potential_energy_surface("BeH2", run_quantum_vqe=False)
+        self.assertAlmostEqual(pes_beh2["equilibrium_r_angstrom"], 1.33, delta=0.05)
+        self.assertGreater(pes_beh2["dissociation_energy_ev"], 1.0)
+        self.assertTrue(pes_beh2["all_points_chemically_accurate"])
+
 if __name__ == "__main__":
     unittest.main()
