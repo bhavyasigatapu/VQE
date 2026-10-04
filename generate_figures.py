@@ -19,12 +19,12 @@ from src.ansatz import build_uccsd_ansatz
 from src.vqe_engine import run_zero_noise_extrapolation, run_adapt_vqe_custom
 
 print("Generating Figure 1: PES...")
-pes = scan_potential_energy_surface('HeH+', np.linspace(0.4, 2.5, 22), run_quantum_vqe=False)
+pes = scan_potential_energy_surface('HeH+', np.linspace(0.4, 2.5, 50), run_quantum_vqe=False)
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
 
 ax1.plot(pes['r_points'], pes['hf_energies'], 'k--', label='Hartree-Fock (HF)', alpha=0.7)
 ax1.plot(pes['r_points'], pes['fci_energies'], color='#0284c7', lw=2.5, label='Exact Full CI (FCI)')
-ax1.plot(pes['r_points'], pes['vqe_energies'], 'o-', color='#2563eb', ms=5, label='VQE (UCCSD, StatevectorEstimator)')
+ax1.plot(pes['r_points'], pes['vqe_energies'], 'o-', color='#2563eb', ms=4, label='VQE (UCCSD, StatevectorEstimator)')
 r_eq = pes['equilibrium_r_angstrom']
 ax1.axvline(r_eq, color='#dc2626', ls=':', label=f'R_e = {r_eq:.3f} Å')
 ax1.set_ylabel('Energy (Hartree)', fontsize=11, fontweight='bold')
@@ -33,7 +33,7 @@ ax1.legend(frameon=True, facecolor='white', framealpha=0.9)
 ax1.grid(True, alpha=0.3)
 
 errors_mha = [e * 1000 for e in pes['errors_ha']]
-ax2.plot(pes['r_points'], errors_mha, 's-', color='#059669', ms=4, label='|E_VQE - E_exact|')
+ax2.plot(pes['r_points'], errors_mha, 's-', color='#059669', ms=3, label='|E_VQE - E_exact|')
 ax2.axhline(1.6, color='#dc2626', ls='--', label='Chemical Accuracy (1.6 mHa)')
 ax2.set_xlabel('Internuclear Distance R (Å)', fontsize=11, fontweight='bold')
 ax2.set_ylabel('Error (mHa)', fontsize=11, fontweight='bold')
@@ -45,7 +45,7 @@ plt.savefig('figures/fig1_heh_plus_pes.png', dpi=200)
 plt.close()
 
 print("Generating Figure 2: Quantum Resource Reduction...")
-mol = compute_heh_plus_integrals(0.774)
+mol = compute_heh_plus_integrals(0.914)
 prob, fop = build_electronic_problem(mol)
 bench = benchmark_all_mappings(prob, fop)
 

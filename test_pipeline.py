@@ -66,7 +66,7 @@ class TestBasQVQEPlatform(unittest.TestCase):
 
     def test_adapt_vqe_pool(self):
         """Verify Adapt-VQE dynamically selects operators with highest gradients."""
-        data = compute_heh_plus_integrals(0.774)
+        data = compute_heh_plus_integrals(0.914)
         prob, fop = build_electronic_problem(data)
         par_op, mapper = map_hamiltonian(prob, fop, "parity")
         _, hf, pool = build_uccsd_ansatz(2, (1, 1), mapper)
@@ -78,7 +78,7 @@ class TestBasQVQEPlatform(unittest.TestCase):
 
     def test_zero_noise_extrapolation(self):
         """Verify ZNE reduces error compared to raw noisy expectation."""
-        data = compute_heh_plus_integrals(0.774)
+        data = compute_heh_plus_integrals(0.914)
         prob, fop = build_electronic_problem(data)
         par_op, mapper = map_hamiltonian(prob, fop, "parity")
         uccsd, _, _ = build_uccsd_ansatz(2, (1, 1), mapper)
