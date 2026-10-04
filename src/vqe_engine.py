@@ -5,6 +5,8 @@ and Zero-Noise Extrapolation (ZNE) quantum error mitigation.
 
 from typing import Dict, Any, List, Tuple, Callable
 import numpy as np
+import warnings
+warnings.filterwarnings("ignore")
 from qiskit.primitives import StatevectorEstimator
 from qiskit_algorithms import VQE
 from qiskit_algorithms.optimizers import SLSQP, COBYLA, L_BFGS_B

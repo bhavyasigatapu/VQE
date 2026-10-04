@@ -98,10 +98,21 @@ def scan_potential_energy_surface(molecule: str = "HeH+",
             errors_ha.append(err)
             chem_acc_flags.append(err <= 1.6e-3)
 
-    # Locate Equilibrium Bond Distance R_e
+    # Locate Equilibrium Bond Distance R_e via quadratic interpolation around the discrete minimum
     min_idx = int(np.argmin(fci_energies))
-    r_eq = r_list[min_idx]
-    e_eq = fci_energies[min_idx]
+    if 0 < min_idx < len(r_list) - 1:
+        r_sub = np.array(r_list[min_idx - 1 : min_idx + 2])
+        e_sub = np.array(fci_energies[min_idx - 1 : min_idx + 2])
+        poly = np.polyfit(r_sub, e_sub, 2)
+        if poly[0] > 0:
+            r_eq = float(-poly[1] / (2.0 * poly[0]))
+            e_eq = float(np.polyval(poly, r_eq))
+        else:
+            r_eq = float(r_list[min_idx])
+            e_eq = float(fci_energies[min_idx])
+    else:
+        r_eq = float(r_list[min_idx])
+        e_eq = float(fci_energies[min_idx])
 
     # Dissociation Limit (asymptotic energy at maximum R)
     e_dissoc = fci_energies[-1]

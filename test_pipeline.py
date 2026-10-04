@@ -16,16 +16,20 @@ class TestBasQVQEPlatform(unittest.TestCase):
 
     def test_analytical_integrals_and_scf(self):
         """Test STO-3G integral generation and SCF convergence for HeH+."""
-        data = compute_heh_plus_integrals(0.774)
+        data = compute_heh_plus_integrals(0.914)
         self.assertEqual(data["num_particles"], (1, 1))
         self.assertEqual(data["num_spatial_orbitals"], 2)
         # Check standard literature values
-        self.assertAlmostEqual(data["E_hf"], -2.84, delta=0.05)
+        self.assertAlmostEqual(data["E_hf"], -2.854, delta=0.01)
         self.assertLess(data["E_fci"], data["E_hf"])
+        # Correlation energy in STO-3G HeH+ should be ~ -0.01 Ha (NOT -0.61 Ha!)
+        corr_energy = data["E_fci"] - data["E_hf"]
+        self.assertGreater(corr_energy, -0.02)
+        self.assertLess(corr_energy, -0.005)
 
     def test_parity_two_qubit_reduction(self):
         """Verify Parity mapping reduces HeH+ from 4 qubits to 2 qubits."""
-        data = compute_heh_plus_integrals(0.774)
+        data = compute_heh_plus_integrals(0.914)
         prob, fop = build_electronic_problem(data)
         
         jw_op, _ = map_hamiltonian(prob, fop, "jordan_wigner")
@@ -37,7 +41,7 @@ class TestBasQVQEPlatform(unittest.TestCase):
 
     def test_commuting_observable_grouping(self):
         """Verify commuting cliques significantly reduce measurement shots."""
-        data = compute_heh_plus_integrals(0.774)
+        data = compute_heh_plus_integrals(0.914)
         prob, fop = build_electronic_problem(data)
         jw_op, _ = map_hamiltonian(prob, fop, "jordan_wigner")
         
@@ -46,15 +50,19 @@ class TestBasQVQEPlatform(unittest.TestCase):
         self.assertGreater(comm["shot_reduction_percent"], 50.0)
 
     def test_vqe_statevector_chemical_accuracy(self):
-        """Verify VQE reaches chemical accuracy (|ΔE| <= 1.6 mHa) at equilibrium."""
-        data = compute_heh_plus_integrals(0.774)
+        """Verify VQE obeys the variational principle and reaches chemical accuracy (|ΔE| <= 1.6 mHa)."""
+        data = compute_heh_plus_integrals(0.914)
         prob, fop = build_electronic_problem(data)
         par_op, mapper = map_hamiltonian(prob, fop, "parity")
         uccsd, hf, _ = build_uccsd_ansatz(2, (1, 1), mapper)
         
         vqe_res = run_vqe(par_op, uccsd, optimizer_name="SLSQP", maxiter=60, nuclear_repulsion=data["E_nuc"])
-        # Energy should be lower than HF and close to FCI
+        # Energy should be lower than HF and strictly satisfy the variational principle (>= E_fci)
         self.assertLess(vqe_res["total_energy"], data["E_hf"])
+        self.assertGreaterEqual(vqe_res["total_energy"], data["E_fci"] - 1e-9)
+        # Chemical accuracy (|ΔE| <= 1.6 mHa = 0.0016 Ha)
+        err = abs(vqe_res["total_energy"] - data["E_fci"])
+        self.assertLessEqual(err, 1.6e-3)
 
     def test_adapt_vqe_pool(self):
         """Verify Adapt-VQE dynamically selects operators with highest gradients."""
@@ -82,7 +90,7 @@ class TestBasQVQEPlatform(unittest.TestCase):
 
     def test_hardware_transpilation(self):
         """Verify transpilation to native IBM basis gates."""
-        data = compute_heh_plus_integrals(0.774)
+        data = compute_heh_plus_integrals(0.914)
         prob, fop = build_electronic_problem(data)
         par_op, mapper = map_hamiltonian(prob, fop, "parity")
         uccsd, _, _ = build_uccsd_ansatz(2, (1, 1), mapper)
@@ -90,6 +98,15 @@ class TestBasQVQEPlatform(unittest.TestCase):
         stats = transpile_and_analyze_circuit(uccsd)
         self.assertIn("two_qubit_gates", stats)
         self.assertGreater(stats["transpiled_depth"], 0)
+
+    def test_pes_equilibrium_and_dissociation(self):
+        """Verify physical equilibrium bond length (~0.914 A) and binding depth (~1.5 eV)."""
+        pes = scan_potential_energy_surface("HeH+", run_quantum_vqe=False)
+        self.assertAlmostEqual(pes["equilibrium_r_angstrom"], 0.92, delta=0.03)
+        self.assertGreater(pes["dissociation_energy_ev"], 1.0)
+        self.assertLess(pes["dissociation_energy_ev"], 2.5)
+        # Dissociation limit should be close to isolated He STO-3G ground state (-2.8082 Ha)
+        self.assertAlmostEqual(pes["dissociation_limit_ha"], -2.8082, delta=0.01)
 
 if __name__ == "__main__":
     unittest.main()

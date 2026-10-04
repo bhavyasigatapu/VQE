@@ -11,6 +11,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import json
 import time
+import warnings
+warnings.filterwarnings("ignore")
 
 # Internal modular imports
 from src.chemistry_engine import (
@@ -249,7 +251,7 @@ with st.sidebar:
     )
     mol_short = "HeH+" if "HeH+" in selected_mol else ("LiH" if "LiH" in selected_mol else "BeH2")
 
-    default_r = 0.774 if mol_short == "HeH+" else (1.595 if mol_short == "LiH" else 1.33)
+    default_r = 0.914 if mol_short == "HeH+" else (1.595 if mol_short == "LiH" else 1.33)
     r_min = 0.4 if mol_short == "HeH+" else (1.0 if mol_short == "LiH" else 0.8)
     r_max = 2.5 if mol_short == "HeH+" else (3.2 if mol_short == "LiH" else 2.4)
 

@@ -81,7 +81,7 @@ cells = [
         "metadata": {},
         "outputs": [],
         "source": [
-            "mol_eq = compute_heh_plus_integrals(0.774)\n",
+            "mol_eq = compute_heh_plus_integrals(0.914)\n",
             "prob, fop = build_electronic_problem(mol_eq)\n",
             "bench = benchmark_all_mappings(prob, fop)\n",
             "\n",

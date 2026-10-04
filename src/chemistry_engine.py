@@ -143,22 +143,28 @@ def compute_heh_plus_integrals(R_angstrom: float) -> Dict[str, Any]:
 
     # MO transformation
     h_mo = C.T @ H_core @ C
-    eri_mo = np.einsum('pi,qj,rk,sl,ijkl->pqrs', C, C, C, C, ERI)
+    # Standard transformation: (ij|kl) = sum_{p,q,r,s} C[p,i] C[q,j] C[r,k] C[s,l] (pq|rs)
+    eri_mo = np.einsum('pi,qj,rk,sl,pqrs->ijkl', C, C, C, C, ERI)
 
-    # Exact Full CI in the singlet 2-electron subspace (|00>, |11>)
-    # H_ci matrix elements:
-    # <00|H|00> = 2*h00 + (00|00)
-    # <11|H|11> = 2*h11 + (11|11)
-    # <00|H|11> = (01|01)
-    H_ci = np.array([
-        [2*h_mo[0, 0] + eri_mo[0, 0, 0, 0], eri_mo[0, 1, 0, 1]],
-        [eri_mo[0, 1, 0, 1], 2*h_mo[1, 1] + eri_mo[1, 1, 1, 1]]
-    ])
-    ci_evals, ci_evecs = eigh(H_ci)
-    E_fci = ci_evals[0] + E_nuc
-    c0 = ci_evecs[0, 0]
-    c1 = ci_evecs[1, 0]
-    multiref_weight = float(c1**2 / (c0**2 + c1**2))
+    # Exact Full CI in the 2-electron singlet subspace for 2 spatial orbitals
+    # Basis states:
+    # |S1> = |0a 0b> (Hartree-Fock ground state)
+    # |S2> = |1a 1b> (Doubly excited state)
+    # |S3> = (|0a 1b> - |0b 1a>)/sqrt(2) (Singly excited singlet state)
+    # Hamiltonian matrix elements:
+    H_s = np.zeros((3, 3))
+    H_s[0, 0] = 2.0 * h_mo[0, 0] + eri_mo[0, 0, 0, 0]
+    H_s[1, 1] = 2.0 * h_mo[1, 1] + eri_mo[1, 1, 1, 1]
+    H_s[2, 2] = h_mo[0, 0] + h_mo[1, 1] + eri_mo[0, 0, 1, 1] + eri_mo[0, 1, 1, 0]
+    H_s[0, 1] = H_s[1, 0] = eri_mo[0, 1, 0, 1]
+    H_s[0, 2] = H_s[2, 0] = np.sqrt(2.0) * (h_mo[0, 1] + eri_mo[0, 0, 0, 1])
+    H_s[1, 2] = H_s[2, 1] = np.sqrt(2.0) * (h_mo[0, 1] + eri_mo[1, 1, 0, 1])
+
+    ci_evals, ci_evecs = eigh(H_s)
+    E_fci = float(ci_evals[0]) + E_nuc
+    c0 = float(ci_evecs[0, 0])
+    # Multireference weight: weight of configurations beyond single-reference HF
+    multiref_weight = float(max(0.0, 1.0 - c0**2))
 
     return {
         "molecule": "HeH+",

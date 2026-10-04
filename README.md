@@ -88,9 +88,11 @@ Comparison of Hartree-Fock (HF), exact Full Configuration Interaction (FCI), and
 ![Figure 1: HeH+ PES](figures/fig1_heh_plus_pes.png)
 
 *Key findings:*
-- **Equilibrium Bond Length ($R_e$)**: $0.774\text{ \AA}$ ($1.463\text{ Bohr}$) with ground energy $E(R_e) = -3.4644\text{ Ha}$.
-- **Dissociation Limit ($E_{\text{dissoc}}$)**: $-2.9485\text{ Ha}$ ($D_e \approx 14.03\text{ eV}$).
-- **Multireference Correlation**: Beyond $R > 1.5\text{ \AA}$, single-reference HF diverges while UCCSD maintains full accuracy.
+- **Equilibrium Bond Length ($R_e$)**: $0.914\text{ \AA}$ ($1.728\text{ Bohr}$) with ground energy $E(R_e) = -2.8627\text{ Ha}$ (STO-3G minimal basis, corresponding to $\sim 0.774\text{ \AA}$ in experimental/extended basis limit).
+- **Correlation Energy**: $E_{\text{FCI}} - E_{\text{HF}} = -0.0084\text{ Ha}$ (physically consistent STO-3G correlation $\sim -0.01\text{ Ha}$).
+- **Dissociation Limit ($E_{\text{dissoc}}$)**: $-2.8082\text{ Ha}$ (isolated neutral Helium atom ground state in STO-3G, as $R \to \infty$).
+- **Binding Well Depth ($D_e$)**: $0.0545\text{ Ha} \approx 1.48\text{ eV}$ (physically consistent well depth $\sim 1.5 - 2\text{ eV}$).
+- **Variational Principle**: $E_{\text{VQE}} \ge E_{\text{FCI}}$ holds strictly across the entire potential energy surface with $|E_{\text{VQE}} - E_{\text{FCI}}| \le 5 \times 10^{-8}\text{ Ha}$ ($0.00005\text{ mHa} \ll 1.6\text{ mHa}$ chemical accuracy threshold).
 
 ---
 
